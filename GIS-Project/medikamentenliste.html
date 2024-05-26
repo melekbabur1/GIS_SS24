@@ -3,18 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Medikamenten hinzufügen</title>
+    <title>Medikamentenliste</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <div class="container">
-           
-            <p>Medikamentenliste</p>
+            <h1>Medikamentenliste</h1>
         </div>
     </header>
-    <form>
-    <div> 
-        <a href="index.html"> &#8592; Zurück</a> 
-    </div> 
-</form>  
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Medikament</th>
+                    <th>Kaufdatum</th>
+                    <th>Verfallsdatum</th>
+                    <th>Aktion</th>
+                </tr>
+            </thead>
+            <tbody id="medikamentenTabelle"> </tbody>
+        </table>
+        <form>
+            <div class="form-group">
+                <a href="index.html">&#8592; Zurück</a>
+            </div>
+        </form>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
