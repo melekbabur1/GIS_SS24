@@ -1,113 +1,81 @@
 const http = require('http');
-const { URL } = require('url');
-const fs = require('fs');
-const path = require('path');
+const { parse } = require('url');
+const { readFileSync, writeFileSync } = require('fs');
+const sqlite3 = require('sqlite3').verbose();
 
 const hostname = '127.0.0.1';
 const port = 3000;
 
-// Array für die Medikamentenliste
-let medikamentenListe = [];
 
 const server = http.createServer((req, res) => {
-    // CORS Header setzen
+   
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
 
-    // Routen behandeln basierend auf der URL
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const pathname = url.pathname;
+   
+    if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+    }
 
-    switch (pathname) {
-        case '/':
-            // Lese index.html und sende sie als Antwort
-            fs.readFile(path.join(__dirname, 'index.html'), (err, data) => {
-                if (err) {
-                    res.writeHead(500);
-                    res.end(`Error loading index.html: ${err}`);
-                } else {
-                    res.writeHead(200, { 'Content-Type': 'text/html' });
-                    res.end(data);
-                }
-            });
-            break;
-        case '/medikamentenliste.html':
-            // Lese mediakmententabelle.html und sende sie als Antwort
-            fs.readFile(path.join(__dirname, 'mediakmententabelle.html'), (err, data) => {
-                if (err) {
-                    res.writeHead(500);
-                    res.end(`Error loading mediakmententabelle.html: ${err}`);
-                } else {
-                    res.writeHead(200, { 'Content-Type': 'text/html' });
-                    res.end(data);
-                }
-            });
-            break;
-        case '/medikamenthinzufuegen.html':
-            // Lese medikamenthinfuegen.html und sende sie als Antwort
-            fs.readFile(path.join(__dirname, 'medikamenthinzufuegen.html'), (err, data) => {
-                if (err) {
-                    res.writeHead(500);
-                    res.end(`Error loading medikamenthinzufuegen.html: ${err}`);
-                } else {
-                    res.writeHead(200, { 'Content-Type': 'text/html' });
-                    res.end(data);
-                }
-            });
-            break;
-        case '/script.js':
-            // Lese script.js und sende es als Antwort
-            fs.readFile(path.join(__dirname, 'script.js'), (err, data) => {
-                if (err) {
-                    res.writeHead(500);
-                    res.end(`Error loading script.js: ${err}`);
-                } else {
-                    res.writeHead(200, { 'Content-Type': 'application/javascript' });
-                    res.end(data);
-                }
-            });
-            break;
-        case '/style.css':
-            // Lese style.css und sende es als Antwort
-            fs.readFile(path.join(__dirname, 'style.css'), (err, data) => {
-                if (err) {
-                    res.writeHead(500);
-                    res.end(`Error loading style.css: ${err}`);
-                } else {
-                    res.writeHead(200, { 'Content-Type': 'text/css' });
-                    res.end(data);
-                }
-            });
-            break;
-        case '/api/medikamente':
-            if (req.method === 'GET') {
-                // Sende die Medikamentenliste als JSON zurück
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(medikamentenListe));
-            } else if (req.method === 'POST') {
-                // Verarbeite POST-Anfragen zum Hinzufügen eines neuen Medikaments
-                let body = '';
-                req.on('data', chunk => {
-                    body += chunk.toString(); // Daten von der Anfrage lesen
-                });
-                req.on('end', () => {
-                    const newMedikament = JSON.parse(body);
-                    medikamentenListe.push(newMedikament);
-                    res.writeHead(201, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ message: 'Medikament hinzugefügt', medikament: newMedikament }));
-                });
+ 
+    const { pathname, query } = parse(req.url, true);
+
+    if (pathname === '/api/medikamente' && req.method === 'GET') {
+      
+        db.all('SELECT * FROM medikamente', (err, rows) => {
+            if (err) {
+                console.error('Fehler beim Abrufen der Medikamentenliste:', err.message);
+                res.writeHead(500);
+                res.end('Internal Server Error');
             } else {
-                res.writeHead(405); // Methode nicht erlaubt
-                res.end('Method not allowed');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(rows));
             }
-            break;
-        default:
-            // Wenn die angeforderte Route nicht gefunden wird
-            res.writeHead(404);
-            res.end('Page not found');
-            break;
+        });
+    } else if (pathname === '/api/medikamente' && req.method === 'POST') {
+    
+        let body = '';
+        req.on('data', (chunk) => {
+            body += chunk.toString(); 
+        });
+        req.on('end', () => {
+            const newMedikament = JSON.parse(body);
+            db.run('INSERT INTO medikamente (medikament, kaufdatum, verfallsdatum) VALUES (?, ?, ?)',
+                [newMedikament.medikament, newMedikament.kaufdatum, newMedikament.verfallsdatum],
+                function(err) {
+                    if (err) {
+                        console.error('Fehler beim Einfügen eines neuen Medikaments:', err.message);
+                        res.writeHead(500);
+                        res.end('Internal Server Error');
+                    } else {
+                        res.writeHead(201, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ message: 'Medikament hinzugefügt', id: this.lastID }));
+                    }
+                });
+        });
+    } else if (pathname.startsWith('/api/medikamente/') && req.method === 'DELETE') {
+      
+        const id = parseInt(pathname.split('/').pop(), 10);
+        db.run('DELETE FROM medikamente WHERE id = ?', id, function(err) {
+            if (err) {
+                console.error('Fehler beim Löschen des Medikaments:', err.message);
+                res.writeHead(500);
+                res.end('Internal Server Error');
+            } else {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: 'Medikament gelöscht', id }));
+            }
+        });
+    } else {
+       
+        res.writeHead(404);
+        res.end('Page not found');
     }
 });
+
 
 server.listen(port, hostname, () => {
     console.log(`Server läuft unter http://${hostname}:${port}/`);

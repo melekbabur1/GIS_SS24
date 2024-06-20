@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS medikamente (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    medikament TEXT NOT NULL,
+    kaufdatum TEXT NOT NULL,
+    verfallsdatum TEXT NOT NULL
+);
